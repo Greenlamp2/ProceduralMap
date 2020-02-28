@@ -7,8 +7,10 @@ public class EndlessTerrain : MonoBehaviour
 {
     public const float maxViewDst = 450;
     public Transform viewer;
+    public Material mapMaterial;
 
     public static Vector2 viewerPosition;
+    private static MapGenerator mapGenerator;
     private int chunkSize;
     private int chunksVisibleInViewDst;
 
@@ -19,6 +21,7 @@ public class EndlessTerrain : MonoBehaviour
     {
         chunkSize = MapGenerator.mapChunkSize - 1;
         chunksVisibleInViewDst = Mathf.RoundToInt(maxViewDst / chunkSize);
+        mapGenerator = FindObjectOfType<MapGenerator>();
     }
 
     private void Update()
@@ -49,7 +52,7 @@ public class EndlessTerrain : MonoBehaviour
                     terrainChunkDictionnary[viewedChunkCoord].UpdateTerrainChunk();
                     if (terrainChunkDictionnary[viewedChunkCoord].isVisible()) terrainChunksLastUpdate.Add(terrainChunkDictionnary[viewedChunkCoord]);
                 } else {
-                    terrainChunkDictionnary.Add(viewedChunkCoord, new TerrainChunk(viewedChunkCoord, chunkSize, transform));
+                    terrainChunkDictionnary.Add(viewedChunkCoord, new TerrainChunk(viewedChunkCoord, chunkSize, transform, mapMaterial));
                 }
             }
         }
@@ -61,18 +64,34 @@ public class EndlessTerrain : MonoBehaviour
         private GameObject meshObject;
         private Bounds bounds;
 
-        public TerrainChunk(Vector2 coord, int size, Transform parent)
+        private MeshRenderer meshRenderer;
+        private MeshFilter meshFilter;
+
+        public TerrainChunk(Vector2 coord, int size, Transform parent, Material material)
         {
             position = coord * size;
             bounds = new Bounds(position, Vector2.one * size);
             Vector3 positionV3 = new Vector3(position.x, 0, position.y);
 
-            meshObject = GameObject.CreatePrimitive(PrimitiveType.Plane);
+            meshObject = new GameObject("TerrainChunk");
+            meshRenderer = meshObject.AddComponent<MeshRenderer>();
+            meshFilter = meshObject.AddComponent<MeshFilter>();
+            meshRenderer.material = material;
             meshObject.transform.position = positionV3;
-
-            meshObject.transform.localScale = Vector3.one * size / 10f;
             meshObject.transform.parent = parent;
             SetVisible(false);
+            
+            mapGenerator.RequestMapData(onMapDataReceived);
+        }
+
+        void onMapDataReceived(MapData mapData)
+        {
+            mapGenerator.RequestMeshData(mapData, onMeshDataReceived);
+        }
+
+        void onMeshDataReceived(MeshData meshData)
+        {
+            meshFilter.mesh = meshData.CreateMesh();
         }
 
         public void UpdateTerrainChunk()
